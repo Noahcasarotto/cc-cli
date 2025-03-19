@@ -124,7 +124,7 @@ DeepSeek CLI is a user-friendly command-line interface that makes it easy to ins
 
 ```bash
 # Clone this repository
-git clone https://github.com/yourusername/deepseek-cli.git
+git clone https://github.com/Noahcasarotto/deepseek-cli.git
 cd deepseek-cli
 
 # Run the installer
@@ -134,7 +134,7 @@ bash install.sh
 Or install with a single command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yourusername/deepseek-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Noahcasarotto/deepseek-cli/main/install.sh | bash
 ```
 
 ## Usage
