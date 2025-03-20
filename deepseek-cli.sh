@@ -4,11 +4,13 @@
 # Author: Noah Casarotto-Dinning
 # Created with assistance from AI
 
-VERSION="0.1.0"
+VERSION="0.2.0"
 MODELS=("deepseek-r1:1.5b" "deepseek-r1:8b" "deepseek-r1:14b" "deepseek-r1:32b" "deepseek-r1:70b")
+ALTERNATIVE_MODELS=("phi" "mistral" "gemma:2b" "llama3:8b" "qwen:4b")
 DEFAULT_MODEL="deepseek-r1:8b"
 CONFIG_DIR="$HOME/.deepseek-cli"
 CONFIG_FILE="$CONFIG_DIR/config"
+FIRST_RUN_FILE="$CONFIG_DIR/first_run_complete"
 
 # ANSI color codes
 RED='\033[0;31m'
@@ -55,6 +57,12 @@ check_dependencies() {
             echo -e "${RED}Unsupported operating system. Please install Ollama manually from https://ollama.com${NC}"
             exit 1
         fi
+        
+        # Start Ollama service
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            brew services start ollama
+            sleep 2  # Give Ollama time to start
+        fi
     fi
     
     echo -e "${GREEN}All dependencies are installed.${NC}"
@@ -88,7 +96,7 @@ pull_model() {
         model=$default_model
     fi
     
-    echo -e "${YELLOW}Downloading DeepSeek model: $model${NC}"
+    echo -e "${YELLOW}Downloading model: $model${NC}"
     ollama pull $model
     
     if [ $? -eq 0 ]; then
@@ -107,7 +115,7 @@ run_model() {
     
     shift
     
-    echo -e "${GREEN}Starting DeepSeek $model...${NC}"
+    echo -e "${GREEN}Starting model $model...${NC}"
     if [ "$verbose" = "true" ]; then
         ollama run $model --verbose "$@"
     else
@@ -120,7 +128,7 @@ set_default_model() {
     
     # Validate model name
     valid_model=false
-    for m in "${MODELS[@]}"; do
+    for m in "${MODELS[@]}" "${ALTERNATIVE_MODELS[@]}"; do
         if [ "$m" = "$model" ]; then
             valid_model=true
             break
@@ -129,13 +137,19 @@ set_default_model() {
     
     if [ "$valid_model" = false ]; then
         echo -e "${RED}Invalid model name: $model${NC}"
-        echo -e "${YELLOW}Available models: ${MODELS[*]}${NC}"
+        echo -e "${YELLOW}Available DeepSeek models: ${MODELS[*]}${NC}"
+        echo -e "${YELLOW}Alternative recommended models: ${ALTERNATIVE_MODELS[*]}${NC}"
         return 1
     fi
     
     default_model=$model
     save_config
     echo -e "${GREEN}Default model set to: $default_model${NC}"
+}
+
+get_installed_models() {
+    installed_models=$(ollama list | awk '{print $1}' | tail -n +2)
+    echo "$installed_models"
 }
 
 list_models() {
@@ -148,23 +162,210 @@ list_models() {
         fi
     done
     
-    echo -e "\n${CYAN}Installed models:${NC}"
-    ollama list | grep deepseek
+    echo -e "\n${CYAN}Recommended alternative models (better for limited hardware):${NC}"
+    for model in "${ALTERNATIVE_MODELS[@]}"; do
+        if [ "$model" = "$default_model" ]; then
+            echo -e "  ${GREEN}* $model (default)${NC}"
+        else
+            echo -e "  $model"
+        fi
+    done
+    
+    echo -e "\n${CYAN}Currently installed models:${NC}"
+    ollama list
+}
+
+recommend_models() {
+    echo -e "${CYAN}Recommended Models for Limited Hardware:${NC}"
+    echo -e "  ${GREEN}phi${NC} - Microsoft's 2.7B model, small but powerful (~1.7GB, needs ~10GB RAM)"
+    echo -e "  ${GREEN}mistral${NC} - 7B model with excellent performance (~4.1GB, needs ~14GB RAM)"
+    echo -e "  ${GREEN}gemma:2b${NC} - Google's 2B model, good for basic tasks (~1.8GB, needs ~8GB RAM)"
+    echo -e "  ${GREEN}llama3:8b${NC} - Meta's 8B model, very capable (~4.7GB, needs ~16GB RAM)"
+    echo -e "  ${GREEN}qwen:4b${NC} - 4B model with good performance (~2.9GB, needs ~10GB RAM)"
+    echo
+    echo -e "To use these models:"
+    echo -e "  ${YELLOW}deepseek pull phi${NC}                # Download phi model"
+    echo -e "  ${YELLOW}deepseek set-default phi${NC}         # Set as default"
+    echo -e "  ${YELLOW}deepseek run phi \"Your prompt\"${NC}   # Run with a specific prompt"
+}
+
+detect_hardware() {
+    # Get total RAM
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS
+        total_ram=$(sysctl hw.memsize | awk '{print $2/1024/1024/1024 " GB"}')
+        cpu_info=$(sysctl -n machdep.cpu.brand_string)
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # Linux
+        total_ram=$(free -h | awk '/^Mem:/ {print $2}')
+        cpu_info=$(grep "model name" /proc/cpuinfo | head -n 1 | cut -d ":" -f 2 | sed 's/^[ \t]*//')
+    else
+        total_ram="Unknown"
+        cpu_info="Unknown"
+    fi
+    
+    # Check if NVIDIA GPU is present
+    if command -v nvidia-smi &> /dev/null; then
+        gpu_info=$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n 1)
+        has_gpu=true
+    elif [[ "$OSTYPE" == "darwin"* ]] && [[ "$cpu_info" == *"Apple"* ]]; then
+        gpu_info="Apple Silicon GPU"
+        has_gpu=true
+    else
+        gpu_info="No dedicated GPU detected"
+        has_gpu=false
+    fi
+    
+    # Extract RAM GB
+    ram_gb=$(echo $total_ram | grep -o -E '[0-9]+')
+    if [[ -z "$ram_gb" ]]; then
+        ram_gb=0
+    fi
+    
+    # Return hardware info
+    echo "cpu_info=\"$cpu_info\""
+    echo "gpu_info=\"$gpu_info\""
+    echo "ram_gb=$ram_gb"
+    echo "has_gpu=$has_gpu"
+}
+
+recommend_best_model() {
+    # Source hardware info
+    eval "$(detect_hardware)"
+    
+    # Default model to recommend
+    recommended_model="phi"
+    
+    # Recommend based on RAM
+    if (( ram_gb >= 32 )); then
+        if [[ "$has_gpu" == true ]]; then
+            recommended_model="mistral"
+        else
+            recommended_model="llama3:8b"
+        fi
+    elif (( ram_gb >= 16 )); then
+        if [[ "$has_gpu" == true ]]; then
+            recommended_model="llama3:8b"
+        else
+            recommended_model="mistral"
+        fi
+    elif (( ram_gb >= 12 )); then
+        recommended_model="qwen:4b"
+    elif (( ram_gb >= 8 )); then
+        recommended_model="phi"
+    else
+        recommended_model="gemma:2b"
+    fi
+    
+    # Special case for Apple Silicon
+    if [[ "$gpu_info" == "Apple Silicon GPU" ]]; then
+        if (( ram_gb >= 16 )); then
+            recommended_model="llama3:8b"
+        elif (( ram_gb >= 8 )); then
+            recommended_model="phi"
+        else
+            recommended_model="gemma:2b"
+        fi
+    fi
+    
+    echo "$recommended_model"
+}
+
+check_hardware() {
+    echo -e "${CYAN}Checking system hardware...${NC}"
+    
+    # Source hardware info
+    eval "$(detect_hardware)"
+    
+    echo -e "CPU: ${YELLOW}$cpu_info${NC}"
+    echo -e "Total RAM: ${YELLOW}$total_ram${NC}"
+    echo -e "GPU: ${YELLOW}$gpu_info${NC}"
+    
+    echo
+    echo -e "${CYAN}Based on your hardware:${NC}"
+    
+    # Make model recommendations based on available RAM
+    if (( ram_gb >= 32 )); then
+        echo -e "  You can run models up to: ${GREEN}deepseek-r1:14b, llama3:8b, mistral${NC}"
+    elif (( ram_gb >= 16 )); then
+        echo -e "  You can run models up to: ${GREEN}deepseek-r1:8b, llama3:8b, mistral${NC}"
+    elif (( ram_gb >= 12 )); then
+        echo -e "  Recommended models: ${GREEN}mistral, qwen:4b${NC}"
+    elif (( ram_gb >= 8 )); then
+        echo -e "  Recommended models: ${GREEN}phi, gemma:2b, qwen:4b${NC}"
+    else
+        echo -e "  ${RED}Your system has limited RAM. Consider using phi or gemma:2b models with caution.${NC}"
+    fi
+    
+    # Show current best recommendation
+    best_model=$(recommend_best_model)
+    echo -e "\n${CYAN}Best model for your hardware:${NC} ${GREEN}$best_model${NC}"
+}
+
+perform_first_run_setup() {
+    print_banner
+    echo -e "${CYAN}Welcome to DeepSeek CLI!${NC}"
+    echo -e "This appears to be your first time running this tool."
+    echo -e "Let's set up the best AI model for your hardware.\n"
+    
+    # Check dependencies
+    check_dependencies
+    
+    # Analyze hardware
+    echo -e "\n${CYAN}Analyzing your hardware...${NC}"
+    eval "$(detect_hardware)"
+    echo -e "CPU: ${YELLOW}$cpu_info${NC}"
+    echo -e "Total RAM: ${YELLOW}$total_ram${NC}"
+    echo -e "GPU: ${YELLOW}$gpu_info${NC}"
+    
+    # Get best model recommendation
+    best_model=$(recommend_best_model)
+    
+    echo -e "\n${CYAN}Based on your hardware, the recommended model is:${NC} ${GREEN}$best_model${NC}"
+    
+    # Prompt user for confirmation
+    read -p "Would you like to download and set this model as default? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo -e "${YELLOW}Downloading and setting up $best_model...${NC}"
+        pull_model "$best_model"
+        set_default_model "$best_model"
+        echo -e "\n${GREEN}Setup complete!${NC}"
+        echo -e "You can now use the model by running: ${CYAN}deepseek run \"Your prompt here\"${NC}"
+    else
+        echo -e "${YELLOW}Skipping automatic model download.${NC}"
+        echo -e "You can manually download models later with: ${CYAN}deepseek pull <model>${NC}"
+    fi
+    
+    # Mark first run as complete
+    touch "$FIRST_RUN_FILE"
+    
+    echo -e "\n${CYAN}Setup completed. Type 'deepseek help' to see all available commands.${NC}"
+}
+
+# Check if this is the first run
+check_first_run() {
+    if [ ! -f "$FIRST_RUN_FILE" ]; then
+        perform_first_run_setup
+    fi
 }
 
 show_help() {
     print_banner
-    echo -e "${CYAN}DeepSeek CLI - Easy command line interface for DeepSeek models${NC}"
+    echo -e "${CYAN}DeepSeek CLI - Easy command line interface for AI models${NC}"
     echo
     echo -e "Usage: $0 [command] [options]"
     echo
     echo -e "Commands:"
-    echo -e "  ${GREEN}install${NC}            Install Ollama and download default DeepSeek model"
-    echo -e "  ${GREEN}run${NC} [model] [args]  Run a DeepSeek model (default: $default_model)"
-    echo -e "  ${GREEN}pull${NC} [model]        Download a DeepSeek model"
-    echo -e "  ${GREEN}list${NC}                List available DeepSeek models"
-    echo -e "  ${GREEN}set-default${NC} <model> Set the default DeepSeek model"
+    echo -e "  ${GREEN}install${NC}            Install Ollama and download default model"
+    echo -e "  ${GREEN}run${NC} [model] [args]  Run a model (default: $default_model)"
+    echo -e "  ${GREEN}pull${NC} [model]        Download a model"
+    echo -e "  ${GREEN}list${NC}                List available and installed models"
+    echo -e "  ${GREEN}recommend${NC}           Show recommended models for limited hardware"
+    echo -e "  ${GREEN}hardware${NC}            Check system hardware and recommend models"
+    echo -e "  ${GREEN}set-default${NC} <model> Set the default model"
     echo -e "  ${GREEN}verbose${NC} <on|off>    Turn verbose mode on or off"
+    echo -e "  ${GREEN}setup${NC}               Run the first-time setup process again"
     echo -e "  ${GREEN}version${NC}             Show version information"
     echo -e "  ${GREEN}help${NC}                Show this help message"
     echo
@@ -172,7 +373,8 @@ show_help() {
     echo -e "  $0 install               # Install Ollama and download default model"
     echo -e "  $0 run                   # Run the default model"
     echo -e "  $0 run \"Tell me a joke\"  # Run with a prompt"
-    echo -e "  $0 pull deepseek-r1:14b  # Download the 14B model"
+    echo -e "  $0 pull phi              # Download the phi model"
+    echo -e "  $0 set-default phi       # Set phi as the default model"
     echo
 }
 
@@ -187,8 +389,11 @@ case "$1" in
         pull_model "$2"
         ;;
     run)
+        # Check if this is the first run
+        check_first_run
+        
         shift
-        if [[ "$1" == deepseek-r1:* ]]; then
+        if [[ "$1" == deepseek-r1:* || " ${ALTERNATIVE_MODELS[@]} " =~ " $1 " ]]; then
             model=$1
             shift
             run_model "$model" "$@"
@@ -201,6 +406,17 @@ case "$1" in
         ;;
     list)
         list_models
+        ;;
+    recommend)
+        recommend_models
+        ;;
+    hardware)
+        check_hardware
+        ;;
+    setup)
+        # Force run the first-time setup again
+        rm -f "$FIRST_RUN_FILE"
+        perform_first_run_setup
         ;;
     set-default)
         set_default_model "$2"
@@ -222,9 +438,15 @@ case "$1" in
         print_banner
         ;;
     help|"")
+        # Check if this is the first run
+        check_first_run
+        
         show_help
         ;;
     *)
+        # Check if this is the first run
+        check_first_run
+        
         echo -e "${RED}Unknown command: $1${NC}"
         show_help
         exit 1
