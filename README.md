@@ -113,3 +113,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 - [CC AI](https://github.com/cc-ai) for their excellent models
 - [Ollama](https://ollama.com) for making local LLM inference possible
+# Repository renamed to cc-cli
