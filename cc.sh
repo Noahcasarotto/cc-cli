@@ -1,14 +1,14 @@
 #!/bin/bash
 
-# DeepSeek CLI - Easy command line interface for DeepSeek models
+# CC CLI - Easy command line interface for CC models
 # Author: Noah Casarotto-Dinning
 # Created with assistance from AI
 
 VERSION="0.2.0"
-MODELS=("deepseek-r1:1.5b" "deepseek-r1:8b" "deepseek-r1:14b" "deepseek-r1:32b" "deepseek-r1:70b")
+MODELS=("cc-r1:1.5b" "cc-r1:8b" "cc-r1:14b" "cc-r1:32b" "cc-r1:70b")
 ALTERNATIVE_MODELS=("phi" "mistral" "gemma:2b" "llama3:8b" "qwen:4b")
-DEFAULT_MODEL="deepseek-r1:8b"
-CONFIG_DIR="$HOME/.deepseek-cli"
+DEFAULT_MODEL="cc-r1:8b"
+CONFIG_DIR="$HOME/.cc-cli"
 CONFIG_FILE="$CONFIG_DIR/config"
 FIRST_RUN_FILE="$CONFIG_DIR/first_run_complete"
 
@@ -22,14 +22,12 @@ NC='\033[0m' # No Color
 
 print_banner() {
     echo -e "${BLUE}"
-    echo "  _____                 _____           _      _____ _      _____  "
-    echo " |  __ \               / ____|         | |    / ____| |    |_   _| "
-    echo " | |  | | ___  ___ _ _| (___   ___  ___| | __| |    | |      | |   "
-    echo " | |  | |/ _ \/ _ \ '_ \\___ \ / _ \/ _ \ |/ /| |    | |      | |   "
-    echo " | |__| |  __/  __/ |_) |___) |  __/  __/   < | |____| |____ _| |_  "
-    echo " |_____/ \___|\___| .__/_____/ \___|\___|_|\_\\\\_____|______|_____| "
-    echo "                  | |                                               "
-    echo "                  |_|                                               "
+    echo "   _____  _____ "
+    echo "  / ____|/ ____|"
+    echo " | |    | |     "
+    echo " | |    | |     "
+    echo " | |____| |____ "
+    echo "  \_____|\_____| "
     echo -e "${CYAN}Version: $VERSION${NC}"
     echo
 }
@@ -137,7 +135,7 @@ set_default_model() {
     
     if [ "$valid_model" = false ]; then
         echo -e "${RED}Invalid model name: $model${NC}"
-        echo -e "${YELLOW}Available DeepSeek models: ${MODELS[*]}${NC}"
+        echo -e "${YELLOW}Available CC models: ${MODELS[*]}${NC}"
         echo -e "${YELLOW}Alternative recommended models: ${ALTERNATIVE_MODELS[*]}${NC}"
         return 1
     fi
@@ -153,7 +151,7 @@ get_installed_models() {
 }
 
 list_models() {
-    echo -e "${CYAN}Available DeepSeek models:${NC}"
+    echo -e "${CYAN}Available CC models:${NC}"
     for model in "${MODELS[@]}"; do
         if [ "$model" = "$default_model" ]; then
             echo -e "  ${GREEN}* $model (default)${NC}"
@@ -184,9 +182,9 @@ recommend_models() {
     echo -e "  ${GREEN}qwen:4b${NC} - 4B model with good performance (~2.9GB, needs ~10GB RAM)"
     echo
     echo -e "To use these models:"
-    echo -e "  ${YELLOW}deepseek pull phi${NC}                # Download phi model"
-    echo -e "  ${YELLOW}deepseek set-default phi${NC}         # Set as default"
-    echo -e "  ${YELLOW}deepseek run phi \"Your prompt\"${NC}   # Run with a specific prompt"
+    echo -e "  ${YELLOW}cc pull phi${NC}                # Download phi model"
+    echo -e "  ${YELLOW}cc set-default phi${NC}         # Set as default"
+    echo -e "  ${YELLOW}cc run phi \"Your prompt\"${NC}   # Run with a specific prompt"
 }
 
 detect_hardware() {
@@ -286,9 +284,9 @@ check_hardware() {
     
     # Make model recommendations based on available RAM
     if (( ram_gb >= 32 )); then
-        echo -e "  You can run models up to: ${GREEN}deepseek-r1:14b, llama3:8b, mistral${NC}"
+        echo -e "  You can run models up to: ${GREEN}cc-r1:14b, llama3:8b, mistral${NC}"
     elif (( ram_gb >= 16 )); then
-        echo -e "  You can run models up to: ${GREEN}deepseek-r1:8b, llama3:8b, mistral${NC}"
+        echo -e "  You can run models up to: ${GREEN}cc-r1:8b, llama3:8b, mistral${NC}"
     elif (( ram_gb >= 12 )); then
         echo -e "  Recommended models: ${GREEN}mistral, qwen:4b${NC}"
     elif (( ram_gb >= 8 )); then
@@ -304,7 +302,7 @@ check_hardware() {
 
 perform_first_run_setup() {
     print_banner
-    echo -e "${CYAN}Welcome to DeepSeek CLI!${NC}"
+    echo -e "${CYAN}Welcome to CC CLI!${NC}"
     echo -e "This appears to be your first time running this tool."
     echo -e "Let's set up the best AI model for your hardware.\n"
     
@@ -331,16 +329,16 @@ perform_first_run_setup() {
         pull_model "$best_model"
         set_default_model "$best_model"
         echo -e "\n${GREEN}Setup complete!${NC}"
-        echo -e "You can now use the model by running: ${CYAN}deepseek run \"Your prompt here\"${NC}"
+        echo -e "You can now use the model by running: ${CYAN}cc run \"Your prompt here\"${NC}"
     else
         echo -e "${YELLOW}Skipping automatic model download.${NC}"
-        echo -e "You can manually download models later with: ${CYAN}deepseek pull <model>${NC}"
+        echo -e "You can manually download models later with: ${CYAN}cc pull <model>${NC}"
     fi
     
     # Mark first run as complete
     touch "$FIRST_RUN_FILE"
     
-    echo -e "\n${CYAN}Setup completed. Type 'deepseek help' to see all available commands.${NC}"
+    echo -e "\n${CYAN}Setup completed. Type 'cc help' to see all available commands.${NC}"
 }
 
 # Check if this is the first run
@@ -352,7 +350,7 @@ check_first_run() {
 
 show_help() {
     print_banner
-    echo -e "${CYAN}DeepSeek CLI - Easy command line interface for AI models${NC}"
+    echo -e "${CYAN}CC CLI - Easy command line interface for AI models${NC}"
     echo
     echo -e "Usage: $0 [command] [options]"
     echo
@@ -393,7 +391,7 @@ case "$1" in
         check_first_run
         
         shift
-        if [[ "$1" == deepseek-r1:* || " ${ALTERNATIVE_MODELS[@]} " =~ " $1 " ]]; then
+        if [[ "$1" == cc-r1:* || " ${ALTERNATIVE_MODELS[@]} " =~ " $1 " ]]; then
             model=$1
             shift
             run_model "$model" "$@"
