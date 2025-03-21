@@ -17,6 +17,10 @@ A simple command-line tool for running CC AI models locally with performance opt
 11. [Available CC Models](#available-cc-models)
 12. [Performance Tips](#performance-tips)
 13. [Cloud Integration](#cloud-integration)
+    - [Installing Cloud Dependencies](#installing-cloud-dependencies)
+    - [Authenticating with Cloud Providers](#authenticating-with-cloud-providers)
+    - [Finding Optimal Cloud Instances](#finding-optimal-cloud-instances)
+    - [Cloud Provisioning](#cloud-provisioning)
 14. [Technical Details](#technical-details)
 15. [Troubleshooting](#troubleshooting)
 16. [Advanced Configurations](#advanced-configurations)
@@ -36,7 +40,11 @@ CC CLI is a user-friendly command-line interface that makes it easy to install, 
 - **Cross-Platform**: Works on macOS and Linux
 - **Configurable**: Set default models and preferences
 - **Performance Optimizations**: Hardware-specific optimizations for faster inference
-- **Cloud Integration**: Easily authenticate with GCP, AWS, and Azure for cloud-based operations
+- **Cloud Integration**: 
+  - Authenticate with GCP, AWS, and Azure
+  - Find the most cost-effective cloud instances for running models
+  - Provision and manage cloud instances for resource-intensive models
+  - Intelligent hardware requirements calculation based on model parameters
 
 ## Quick Installation
 
@@ -328,7 +336,7 @@ eval rate:            1.36 tokens/s
 
 CC CLI provides built-in functionality to authenticate and work with major cloud providers, allowing you to leverage cloud resources for running larger models or managing cloud infrastructure.
 
-### Installing Cloud CLI Dependencies
+### Installing Cloud Dependencies
 
 Before using the cloud integration features, you need to install the necessary cloud provider CLIs. A helper script is provided to streamline this process:
 
@@ -353,47 +361,131 @@ You can also install individual CLIs:
 
 ### Authenticating with Cloud Providers
 
-The `cc login` command allows you to authenticate with all supported cloud providers through a simple interface:
+The `cc-login.sh` script allows you to authenticate with all supported cloud providers through a simple interface:
 
 ```bash
-cc login         # Interactive login menu
-cc login --all   # Login to all configured cloud providers
-cc login --gcp   # Login to GCP only
-cc login --aws   # Login to AWS only
-cc login --azure # Login to Azure only
-cc login --status # Check authentication status
+./cc-login.sh          # Interactive login menu
+./cc-login.sh --all    # Login to all configured cloud providers
+./cc-login.sh --gcp    # Login to GCP only
+./cc-login.sh --aws    # Login to AWS only (supports SSO and access keys)
+./cc-login.sh --azure  # Login to Azure only
+./cc-login.sh --status # Check authentication status
+./cc-login.sh --logout # Logout from all providers
 ```
 
-### Authentication Features
+#### Authentication Features
 
 The cloud authentication system provides several features:
 
-1. **Status Tracking**: The system keeps track of which providers you're authenticated with
-2. **Configuration Management**: Cloud provider configurations are stored in `~/.cc-cli/config`
-3. **Intelligent Detection**: Automatically detects if you're already logged in
-4. **Guided Setup**: Walks you through project/subscription selection where applicable
+1. **Multiple Authentication Methods**:
+   - AWS: Support for both SSO and traditional access keys
+   - Azure: Web-based authentication with subscription selection
+   - GCP: Interactive project selection and management
 
-### Example Workflow
+2. **Status Tracking**: The system keeps track of which providers you're authenticated with
+3. **Configuration Management**: Cloud provider configurations are stored in `~/.cc-cli/config`
+4. **Intelligent Detection**: Automatically detects if you're already logged in
+5. **Guided Setup**: Walks you through project/subscription selection where applicable
 
-1. Install dependencies:
+### Finding Optimal Cloud Instances
+
+The `cloud_compute.sh` script helps you find the most cost-effective cloud instances for running your models. It uses an advanced model requirements calculation system that determines optimal hardware configurations based on model parameters, quantization, and intended use case.
+
+```bash
+./cloud_compute.sh find-cheapest <model> [performance-level]
+```
+
+Where `<model>` is one of the supported models (cc-r1:1.5b, cc-r1:8b, llama3:8b, etc.) and the optional `[performance-level]` can be:
+
+- `basic`: Lowest cost configuration, CPU-only for smaller models
+- `standard`: Balanced cost/performance (default)
+- `optimal`: Best performance, higher-tier GPUs with more resources
+
+#### Example Usage
+
+```bash
+# Find cheapest instance for running cc-r1:8b with standard performance
+./cloud_compute.sh find-cheapest cc-r1:8b
+
+# Find the optimal (highest performance) instance for llama3:8b
+./cloud_compute.sh find-cheapest llama3:8b optimal
+
+# Find a basic (lowest cost) instance for phi
+./cloud_compute.sh find-cheapest phi basic
+```
+
+#### Advanced Model Requirements Calculation
+
+The `cloud_compute.sh` script uses a sophisticated approach to determine hardware requirements:
+
+1. **Model Parameter Analysis**: Calculates resource needs based on model size, context length, and architecture
+2. **Quantization Awareness**: Adjusts memory requirements based on quantization method (none, int8, int4)
+3. **Performance Tier Scaling**: Scales requirements based on desired performance level
+4. **GPU Selection**: Intelligently selects appropriate GPU types based on memory needs
+5. **Provider-Specific Optimization**: Considers differences between GCP and Azure instance types
+
+#### Supported Models
+
+The system supports a wide range of models with automatically calculated requirements:
+
+- CC models: cc-r1:1.5b, cc-r1:8b, cc-r1:14b, cc-r1:32b, cc-r1:70b
+- Third-party models: phi, mistral, gemma:2b, llama3:8b, qwen:4b
+
+### Cloud Provisioning
+
+The `cloud_compute.sh` script also provides functionality to provision cloud instances based on model requirements:
+
+```bash
+./cloud_compute.sh provision <model> [performance-level]
+```
+
+This command:
+1. Finds the most cost-effective instance across providers
+2. Provisions the instance with the necessary configuration
+3. Sets up the environment with Docker and CC CLI
+4. Provides connection instructions
+
+#### Instance Management
+
+After provisioning, you can:
+
+1. Connect to your instance:
+   ```bash
+   # For GCP (example)
+   gcloud compute ssh <instance-name> --zone=<zone>
+   ```
+
+2. Run models on the provisioned instance:
+   ```bash
+   cc run --cloud=gcp --machine=<machine-type> <model> "Your prompt"
+   ```
+
+3. Terminate the instance when done:
+   ```bash
+   # For GCP (example)
+   gcloud compute instances delete <instance-name> --zone=<zone>
+   ```
+
+#### Workflow Example
+
+1. Install cloud dependencies and authenticate:
    ```bash
    ./install_cloud_deps.sh --gcp
+   ./cc-login.sh --gcp
    ```
 
-2. Authenticate with GCP:
+2. Find the optimal instance for your model:
    ```bash
-   cc login --gcp
+   ./cloud_compute.sh find-cheapest cc-r1:70b
    ```
 
-3. View authentication status:
+3. Provision an instance:
    ```bash
-   cc login --status
+   ./cloud_compute.sh provision cc-r1:70b
    ```
 
-This system provides a foundation for future cloud-based features like:
-- Running models on cloud GPU instances
-- Managing model deployment across multiple providers
-- Cost optimization for cloud-based inference
+4. Connect and use the model
+5. Terminate when done
 
 ## Technical Details
 
