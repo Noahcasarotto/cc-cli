@@ -349,31 +349,33 @@ check_first_run() {
 }
 
 show_help() {
-    print_banner
-    echo -e "${CYAN}CC CLI - Easy command line interface for AI models${NC}"
+    echo -e "${CYAN}Usage:${NC}"
+    echo "  cc [command] [options]"
     echo
-    echo -e "Usage: $0 [command] [options]"
+    echo -e "${CYAN}Commands:${NC}"
+    echo "  run [model] [prompt]   Run a model with the given prompt"
+    echo "  install                Install or update requirements"
+    echo "  pull [model]           Download a model"
+    echo "  list                   List available models"
+    echo "  recommend              Recommend best model for your system"
+    echo "  hardware               Check your system hardware"
+    echo "  setup                  Run first-time setup again"
+    echo "  set-default [model]    Set default model"
+    echo "  login                  Authenticate with cloud providers (GCP, AWS, Azure)"
+    echo "  verbose [on|off]       Enable or disable verbose mode"
+    echo "  version                Show version"
+    echo "  help                   Show this help message"
     echo
-    echo -e "Commands:"
-    echo -e "  ${GREEN}install${NC}            Install Ollama and download default model"
-    echo -e "  ${GREEN}run${NC} [model] [args]  Run a model (default: $default_model)"
-    echo -e "  ${GREEN}pull${NC} [model]        Download a model"
-    echo -e "  ${GREEN}list${NC}                List available and installed models"
-    echo -e "  ${GREEN}recommend${NC}           Show recommended models for limited hardware"
-    echo -e "  ${GREEN}hardware${NC}            Check system hardware and recommend models"
-    echo -e "  ${GREEN}set-default${NC} <model> Set the default model"
-    echo -e "  ${GREEN}verbose${NC} <on|off>    Turn verbose mode on or off"
-    echo -e "  ${GREEN}setup${NC}               Run the first-time setup process again"
-    echo -e "  ${GREEN}version${NC}             Show version information"
-    echo -e "  ${GREEN}help${NC}                Show this help message"
+    echo -e "${CYAN}Models:${NC}"
+    echo "  cc-r1:1.5b, cc-r1:8b, cc-r1:14b, cc-r1:32b, cc-r1:70b"
+    echo "  phi, mistral, gemma:2b, llama3:8b, qwen:4b"
     echo
-    echo -e "Examples:"
-    echo -e "  $0 install               # Install Ollama and download default model"
-    echo -e "  $0 run                   # Run the default model"
-    echo -e "  $0 run \"Tell me a joke\"  # Run with a prompt"
-    echo -e "  $0 pull phi              # Download the phi model"
-    echo -e "  $0 set-default phi       # Set phi as the default model"
-    echo
+    echo -e "${CYAN}Examples:${NC}"
+    echo "  cc run \"What is the capital of France?\""
+    echo "  cc run mistral \"Write me a poem about clouds.\""
+    echo "  cc pull phi"
+    echo "  cc recommend"
+    echo "  cc login --gcp"
 }
 
 # Initialize
@@ -415,6 +417,11 @@ case "$1" in
         # Force run the first-time setup again
         rm -f "$FIRST_RUN_FILE"
         perform_first_run_setup
+        ;;
+    login)
+        # Run the cloud login script with any passed arguments
+        shift
+        "$(dirname "$0")/cc-login.sh" "$@"
         ;;
     set-default)
         set_default_model "$2"

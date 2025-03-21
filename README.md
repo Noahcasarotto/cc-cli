@@ -16,12 +16,13 @@ A simple command-line tool for running CC AI models locally with performance opt
 10. [Testing Model Performance](#testing-model-performance)
 11. [Available CC Models](#available-cc-models)
 12. [Performance Tips](#performance-tips)
-13. [Technical Details](#technical-details)
-14. [Troubleshooting](#troubleshooting)
-15. [Advanced Configurations](#advanced-configurations)
-16. [License](#license)
-17. [Contributing](#contributing)
-18. [Credits](#credits)
+13. [Cloud Integration](#cloud-integration)
+14. [Technical Details](#technical-details)
+15. [Troubleshooting](#troubleshooting)
+16. [Advanced Configurations](#advanced-configurations)
+17. [License](#license)
+18. [Contributing](#contributing)
+19. [Credits](#credits)
 
 ## What is CC CLI?
 
@@ -35,6 +36,7 @@ CC CLI is a user-friendly command-line interface that makes it easy to install, 
 - **Cross-Platform**: Works on macOS and Linux
 - **Configurable**: Set default models and preferences
 - **Performance Optimizations**: Hardware-specific optimizations for faster inference
+- **Cloud Integration**: Easily authenticate with GCP, AWS, and Azure for cloud-based operations
 
 ## Quick Installation
 
@@ -321,6 +323,77 @@ eval rate:            1.36 tokens/s
 - Use `llm-performance-mode` before running intensive tasks
 - For Apple Silicon, Metal optimizations provide significant speed improvements
 - Match thread count to your available CPU cores for optimal performance
+
+## Cloud Integration
+
+CC CLI provides built-in functionality to authenticate and work with major cloud providers, allowing you to leverage cloud resources for running larger models or managing cloud infrastructure.
+
+### Installing Cloud CLI Dependencies
+
+Before using the cloud integration features, you need to install the necessary cloud provider CLIs. A helper script is provided to streamline this process:
+
+```bash
+./install_cloud_deps.sh
+```
+
+This script will guide you through installing:
+- Google Cloud SDK (gcloud)
+- AWS CLI
+- Azure CLI
+- jq (required for JSON processing)
+
+You can also install individual CLIs:
+
+```bash
+./install_cloud_deps.sh --gcp   # Install only Google Cloud SDK
+./install_cloud_deps.sh --aws   # Install only AWS CLI
+./install_cloud_deps.sh --azure # Install only Azure CLI
+./install_cloud_deps.sh --all   # Install all without prompting
+```
+
+### Authenticating with Cloud Providers
+
+The `cc login` command allows you to authenticate with all supported cloud providers through a simple interface:
+
+```bash
+cc login         # Interactive login menu
+cc login --all   # Login to all configured cloud providers
+cc login --gcp   # Login to GCP only
+cc login --aws   # Login to AWS only
+cc login --azure # Login to Azure only
+cc login --status # Check authentication status
+```
+
+### Authentication Features
+
+The cloud authentication system provides several features:
+
+1. **Status Tracking**: The system keeps track of which providers you're authenticated with
+2. **Configuration Management**: Cloud provider configurations are stored in `~/.cc-cli/config`
+3. **Intelligent Detection**: Automatically detects if you're already logged in
+4. **Guided Setup**: Walks you through project/subscription selection where applicable
+
+### Example Workflow
+
+1. Install dependencies:
+   ```bash
+   ./install_cloud_deps.sh --gcp
+   ```
+
+2. Authenticate with GCP:
+   ```bash
+   cc login --gcp
+   ```
+
+3. View authentication status:
+   ```bash
+   cc login --status
+   ```
+
+This system provides a foundation for future cloud-based features like:
+- Running models on cloud GPU instances
+- Managing model deployment across multiple providers
+- Cost optimization for cloud-based inference
 
 ## Technical Details
 
