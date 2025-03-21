@@ -12,8 +12,9 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration directory
-CONFIG_DIR="$HOME/.cc-cli/config"
-AUTH_STATUS_FILE="$CONFIG_DIR/auth_status.json"
+CONFIG_DIR="$HOME/.cc-cli"
+AUTH_DIR="$HOME/.cc-cli/auth"
+AUTH_STATUS_FILE="$AUTH_DIR/auth_status.json"
 
 # Function to check if a command exists
 command_exists() {

@@ -12,24 +12,28 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration directory
-CONFIG_DIR="$HOME/.cc-cli/config"
+CONFIG_DIR="$HOME/.cc-cli"
 CREDENTIALS_DIR="$HOME/.cc-cli/credentials"
+AUTH_DIR="$HOME/.cc-cli/auth"
 
 # Ensure directories exist
 mkdir -p "$CONFIG_DIR"
 mkdir -p "$CREDENTIALS_DIR"
+mkdir -p "$AUTH_DIR"
 
 # File to track which providers are authenticated
-AUTH_STATUS_FILE="$CONFIG_DIR/auth_status.json"
+AUTH_STATUS_FILE="$AUTH_DIR/auth_status.json"
 
 # Initialize auth status file if it doesn't exist
 if [ ! -f "$AUTH_STATUS_FILE" ]; then
-  echo '{
-    "gcp": false,
-    "aws": false,
-    "azure": false,
-    "last_login": null
-  }' > "$AUTH_STATUS_FILE"
+  cat > "$AUTH_STATUS_FILE" << EOL
+{
+  "gcp": false,
+  "aws": false,
+  "azure": false,
+  "last_login": null
+}
+EOL
 fi
 
 # Function to show usage
