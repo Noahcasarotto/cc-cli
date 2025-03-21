@@ -88,7 +88,7 @@ authenticate_gcp() {
   echo -e "${BLUE}Authenticating with Google Cloud Platform...${NC}"
   
   if ! command_exists gcloud; then
-    echo -e "${RED}Error: gcloud CLI not found. Please install the Google Cloud SDK.${NC}"
+    echo -e "${RED}Error: gcloud CLI not installed. Please install the Google Cloud SDK.${NC}"
     echo "Visit: https://cloud.google.com/sdk/docs/install"
     return 1
   fi
@@ -100,7 +100,11 @@ authenticate_gcp() {
     return 0
   fi
   
-  # Run the login command
+  # Run the login command with browser-based authentication
+  echo -e "${YELLOW}Launching Google Cloud web-based authentication...${NC}"
+  echo -e "This will open a browser window where you can log in to your Google account."
+  echo -e "After logging in through the browser, you'll be returned to the terminal."
+  
   if gcloud auth login; then
     echo -e "${GREEN}Successfully authenticated with GCP as $(gcloud auth list --filter=status:ACTIVE --format="value(account)")${NC}"
     
@@ -126,7 +130,7 @@ authenticate_aws() {
   echo -e "${BLUE}Authenticating with Amazon Web Services...${NC}"
   
   if ! command_exists aws; then
-    echo -e "${RED}Error: AWS CLI not found. Please install the AWS CLI.${NC}"
+    echo -e "${RED}Error: AWS CLI not installed. Please install the AWS CLI.${NC}"
     echo "Visit: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"
     return 1
   fi
@@ -138,9 +142,28 @@ authenticate_aws() {
     return 0
   fi
   
-  # Run the login command using AWS configure
-  echo -e "${YELLOW}Please enter your AWS credentials:${NC}"
-  aws configure
+  # Use web-based SSO login instead of CLI configure
+  echo -e "${YELLOW}Launching AWS web-based authentication...${NC}"
+  echo -e "This will open a browser window where you can log in to AWS."
+  echo -e "After logging in through the browser, you'll be returned to the terminal."
+  
+  # Check if AWS SSO is already configured
+  if aws configure list-profiles 2>/dev/null | grep -q "default"; then
+    # Use regular web login 
+    if aws sso login; then
+      echo -e "${GREEN}Successfully authenticated with AWS via web login${NC}"
+      update_auth_status "aws" "true"
+      return 0
+    else
+      echo -e "${RED}Failed to authenticate with AWS via web login.${NC}"
+      # Fall back to SSO configuration if direct login failed
+      echo -e "${YELLOW}Let's set up AWS SSO...${NC}"
+    fi
+  fi
+  
+  # Configure SSO if not set up
+  echo -e "${YELLOW}Setting up AWS Single Sign-On login...${NC}"
+  aws configure sso
   
   # Verify authentication
   if aws sts get-caller-identity >/dev/null 2>&1; then
@@ -149,8 +172,27 @@ authenticate_aws() {
     return 0
   else
     echo -e "${RED}Failed to authenticate with AWS.${NC}"
-    update_auth_status "aws" "false"
-    return 1
+    echo -e "${YELLOW}Would you like to try the traditional credentials method? (y/n)${NC}"
+    read -p "Enter your choice: " use_traditional
+    
+    if [[ "$use_traditional" =~ ^[Yy]$ ]]; then
+      echo -e "${YELLOW}Please enter your AWS credentials:${NC}"
+      aws configure
+      
+      # Verify authentication again
+      if aws sts get-caller-identity >/dev/null 2>&1; then
+        echo -e "${GREEN}Successfully authenticated with AWS as $(aws sts get-caller-identity --query 'Arn' --output text)${NC}"
+        update_auth_status "aws" "true"
+        return 0
+      else
+        echo -e "${RED}Failed to authenticate with AWS.${NC}"
+        update_auth_status "aws" "false"
+        return 1
+      fi
+    else
+      update_auth_status "aws" "false"
+      return 1
+    fi
   fi
 }
 
@@ -159,7 +201,7 @@ authenticate_azure() {
   echo -e "${BLUE}Authenticating with Microsoft Azure...${NC}"
   
   if ! command_exists az; then
-    echo -e "${RED}Error: Azure CLI not found. Please install the Azure CLI.${NC}"
+    echo -e "${RED}Error: Azure CLI not installed. Please install the Azure CLI.${NC}"
     echo "Visit: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
     return 1
   fi
@@ -171,7 +213,11 @@ authenticate_azure() {
     return 0
   fi
   
-  # Run the login command
+  # Run the login command with browser-based authentication
+  echo -e "${YELLOW}Launching Azure web-based authentication...${NC}"
+  echo -e "This will open a browser window where you can log in to your Azure account."
+  echo -e "After logging in through the browser, you'll be returned to the terminal."
+  
   if az login; then
     echo -e "${GREEN}Successfully authenticated with Azure as $(az account show --query 'user.name' -o tsv)${NC}"
     
